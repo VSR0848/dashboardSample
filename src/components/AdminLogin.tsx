@@ -19,7 +19,7 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (username === 'admin' && password === 'admin') {
+    if (username === 'admin' && password === 'patricks9520') {
       onLogin();
       toast({
         title: "Login Successful",
@@ -84,7 +84,7 @@ const AdminLogin = ({ onLogin }: AdminLoginProps) => {
           </form>
           <div className="mt-4 text-center text-sm text-gray-600">
             <p>Demo credentials:</p>
-            <p>Username: admin | Password: admin</p>
+            <p>Username: admin | Password: patricks9520</p>
           </div>
         </CardContent>
       </Card>

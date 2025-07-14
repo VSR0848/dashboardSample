@@ -2,11 +2,20 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Trophy, Crown, Medal, Award } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { useEventContext } from './EventContext';
+import { useEffect, useState } from 'react';
+import { db } from '../lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 const LiveScoreboard = () => {
-  const { events } = useEventContext();
+  const [events, setEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'events'), (snapshot) => {
+      setEvents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+    return () => unsub();
+  }, []);
+
   // Calculate house scores from all event winners
   const houseMap: Record<string, { name: string; color: string; score: number; bgGradient: string }> = {
     Delany: { name: 'Delany', color: 'red', score: 0, bgGradient: 'from-red-500 to-red-600' },
@@ -14,8 +23,8 @@ const LiveScoreboard = () => {
     Tagore: { name: 'Tagore', color: 'green', score: 0, bgGradient: 'from-green-500 to-green-600' },
     Aloysius: { name: 'Aloysius', color: 'yellow', score: 0, bgGradient: 'from-yellow-500 to-yellow-600' },
   };
-  events.forEach(event => {
-    event.winners.forEach(winner => {
+  events.forEach((event: any) => {
+    event.winners?.forEach((winner: any) => {
       if (houseMap[winner.house]) {
         houseMap[winner.house].score += winner.points;
       }

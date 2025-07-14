@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,7 +37,67 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
   const [activeTab, setActiveTab] = useState('events');
   const [editingResult, setEditingResult] = useState<Event | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState('');
+  const selectedEvent = events.find(e => e.id === selectedEventId);
+  // For resultWinners, always provide a 'photo' property (even if undefined)
+  const [resultWinners, setResultWinners] = useState([
+    { position: 1, house: '', name: '', points: 10, photo: undefined },
+    { position: 2, house: '', name: '', points: 7, photo: undefined },
+    { position: 3, house: '', name: '', points: 5, photo: undefined }
+  ]);
 
+  useEffect(() => {
+    if (selectedEvent) {
+      // Determine default points based on category
+      const isGroup = selectedEvent.category === 'Group';
+      const defaultPoints = isGroup ? [20, 15, 10] : [10, 7, 5];
+      // If there are no winners, set defaults
+      if (!selectedEvent.winners || selectedEvent.winners.length === 0) {
+        setResultWinners([
+          { position: 1, house: '', name: '', points: defaultPoints[0], photo: undefined },
+          { position: 2, house: '', name: '', points: defaultPoints[1], photo: undefined },
+          { position: 3, house: '', name: '', points: defaultPoints[2], photo: undefined }
+        ]);
+      } else {
+        // If winners exist, keep their points, but for new added winners, use correct default
+        setResultWinners(selectedEvent.winners.map((w, i) => ({ ...w, photo: w.photo !== undefined ? w.photo : undefined, points: w.points ?? defaultPoints[w.position-1] })));
+      }
+    } else {
+      setResultWinners([
+        { position: 1, house: '', name: '', points: 10, photo: undefined },
+        { position: 2, house: '', name: '', points: 7, photo: undefined },
+        { position: 3, house: '', name: '', points: 5, photo: undefined }
+      ]);
+    }
+  }, [selectedEvent]);
+
+  const handleResultWinnerChange = (index: number, field: string, value: any) => {
+    const updated = [...resultWinners];
+    updated[index] = { ...updated[index], [field]: value };
+    setResultWinners(updated);
+  };
+
+  const handleSaveResults = () => {
+    if (selectedEvent) {
+      // Clean winners: remove undefined fields
+      const cleanedWinners = resultWinners.map(winner => {
+        const cleaned = { ...winner };
+        Object.keys(cleaned).forEach(key => {
+          if (cleaned[key] === undefined) {
+            delete cleaned[key];
+          }
+        });
+        return cleaned;
+      });
+      updateEvent({ ...selectedEvent, winners: cleanedWinners });
+      toast({
+        title: 'Results Updated',
+        description: `Winners for ${selectedEvent.name} have been updated.`,
+      });
+    }
+  };
+
+  // Restore newEvent and newWinners for Events tab
   const [newEvent, setNewEvent] = useState<Omit<Event, 'id' | 'winners'>>({
     name: '',
     description: '',
@@ -46,7 +106,6 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
     gradeLevel: '',
     venue: ''
   });
-
   const [newWinners, setNewWinners] = useState([
     { position: 1, house: '', name: '', points: 10, photo: undefined },
     { position: 2, house: '', name: '', points: 7, photo: undefined },
@@ -54,7 +113,26 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
   ]);
 
   const handleAddEvent = () => {
-    addEvent({ ...newEvent, winners: newWinners });
+    // Clean winners: remove undefined fields
+    const cleanedWinners = newWinners.map(winner => {
+      const cleaned = { ...winner };
+      Object.keys(cleaned).forEach(key => {
+        if (cleaned[key] === undefined) {
+          delete cleaned[key];
+        }
+      });
+      return cleaned;
+    });
+
+    // Clean event: remove undefined fields
+    const cleanedEvent = { ...newEvent, winners: cleanedWinners };
+    Object.keys(cleanedEvent).forEach(key => {
+      if (cleanedEvent[key] === undefined) {
+        delete cleanedEvent[key];
+      }
+    });
+
+    addEvent(cleanedEvent);
     toast({
       title: 'Event Added Successfully',
       description: `${newEvent.name} has been added to the system.`,
@@ -144,6 +222,22 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
   // Calculate stats
   const totalEvents = events.length;
   const awards = events.reduce((sum, e) => sum + e.winners.length, 0);
+
+  // Add Winner handler
+  const handleAddWinner = () => {
+    if (!selectedEvent) return;
+    const isGroup = selectedEvent.category === 'Group';
+    const defaultPoints = isGroup ? 20 : 10;
+    setResultWinners([
+      ...resultWinners,
+      { position: 1, house: '', name: '', points: defaultPoints, photo: undefined }
+    ]);
+  };
+
+  // Remove Winner handler
+  const handleRemoveWinner = (index: number) => {
+    setResultWinners(resultWinners.filter((_, i) => i !== index));
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -316,9 +410,9 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
               <CardContent className="space-y-6">
                 <div>
                   <Label>Select Event</Label>
-                  <Select value={''} onValueChange={() => {}} disabled>
+                  <Select value={selectedEventId} onValueChange={setSelectedEventId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Choose an event (edit in All Events above)" />
+                      <SelectValue placeholder="Choose an event" />
                     </SelectTrigger>
                     <SelectContent>
                       {events.map(event => (
@@ -327,106 +421,119 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
                     </SelectContent>
                   </Select>
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {newWinners.map((winner, index) => (
-                    <Card key={index} className="border-2 border-dashed">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg flex items-center space-x-2">
-                          {index === 0 && <Trophy className="h-5 w-5 text-yellow-500" />}
-                          {index === 1 && <Trophy className="h-5 w-5 text-gray-400" />}
-                          {index === 2 && <Trophy className="h-5 w-5 text-orange-500" />}
-                          <span>{index === 0 ? '1st' : index === 1 ? '2nd' : '3rd'} Place</span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div>
-                          <Label>Winner Photo</Label>
-                          {winner.photo ? (
-                            <div className="relative">
-                              <img src={winner.photo} alt="Winner preview" className="w-full h-32 object-cover rounded-lg border" />
-                              <Button type="button" onClick={() => {
-                                const updated = [...newWinners];
-                                updated[index].photo = undefined;
-                                setNewWinners(updated);
-                              }} className="absolute top-2 right-2 h-6 w-6 p-0 bg-red-500 hover:bg-red-600">
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                              <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                              <Input
-                                type="file"
-                                accept="image/*"
-                                onChange={e => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onload = ev => {
-                                      const updated = [...newWinners];
-                                      updated[index].photo = ev.target?.result as string;
-                                      setNewWinners(updated);
-                                    };
-                                    reader.readAsDataURL(file);
-                                  }
-                                }}
-                                className="hidden"
-                                id={`photo-${index}`}
-                              />
-                              <Label htmlFor={`photo-${index}`} className="cursor-pointer text-blue-600 hover:text-blue-700">
-                                Click to upload photo
-                              </Label>
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <Label>House</Label>
-                          <Select value={winner.house} onValueChange={value => {
-                            const updated = [...newWinners];
-                            updated[index].house = value;
-                            setNewWinners(updated);
-                          }}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select house" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Delany">Delany</SelectItem>
-                              <SelectItem value="Gandhi">Gandhi</SelectItem>
-                              <SelectItem value="Tagore">Tagore</SelectItem>
-                              <SelectItem value="Aloysius">Aloysius</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Winner Name</Label>
-                          <Input
-                            value={winner.name}
-                            onChange={e => {
-                              const updated = [...newWinners];
-                              updated[index].name = e.target.value;
-                              setNewWinners(updated);
-                            }}
-                            placeholder="Enter name or team name"
-                          />
-                        </div>
-                        <div>
-                          <Label>Points</Label>
-                          <Input
-                            type="number"
-                            value={winner.points}
-                            onChange={e => {
-                              const updated = [...newWinners];
-                              updated[index].points = parseInt(e.target.value) || 0;
-                              setNewWinners(updated);
-                            }}
-                          />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                {/* No Save Results button, as results are now part of event creation above */}
+                {selectedEvent && (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {resultWinners.map((winner, index) => (
+                      <Card key={index} className="border-2 border-dashed relative">
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-lg flex items-center space-x-2">
+                            {winner.position === 1 && <Trophy className="h-5 w-5 text-yellow-500" />}
+                            {winner.position === 2 && <Trophy className="h-5 w-5 text-gray-400" />}
+                            {winner.position === 3 && <Trophy className="h-5 w-5 text-orange-500" />}
+                            <span>{winner.position === 1 ? '1st' : winner.position === 2 ? '2nd' : winner.position === 3 ? '3rd' : `${winner.position}th`} Place</span>
+                          </CardTitle>
+                          <Button type="button" size="icon" variant="ghost" className="absolute top-2 right-2" onClick={() => handleRemoveWinner(index)}>
+                            <X className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div>
+                            <Label>Winner Photo</Label>
+                            {winner.photo ? (
+                              <div className="relative">
+                                <img src={winner.photo} alt="Winner preview" className="w-full h-32 object-cover rounded-lg border" />
+                                <Button type="button" onClick={() => {
+                                  const updated = [...resultWinners];
+                                  updated[index].photo = undefined;
+                                  setResultWinners(updated);
+                                }} className="absolute top-2 right-2 h-6 w-6 p-0 bg-red-500 hover:bg-red-600">
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                                <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                                <Input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={e => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onload = ev => {
+                                        const updated = [...resultWinners];
+                                        updated[index].photo = ev.target?.result as string;
+                                        setResultWinners(updated);
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                  }}
+                                  className="hidden"
+                                  id={`result-photo-${index}`} />
+                                <Label htmlFor={`result-photo-${index}`} className="cursor-pointer text-blue-600 hover:text-blue-700">
+                                  Click to upload photo
+                                </Label>
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <Label>House</Label>
+                            <Select value={winner.house} onValueChange={value => handleResultWinnerChange(index, 'house', value)}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select house" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Delany">Delany</SelectItem>
+                                <SelectItem value="Gandhi">Gandhi</SelectItem>
+                                <SelectItem value="Tagore">Tagore</SelectItem>
+                                <SelectItem value="Aloysius">Aloysius</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Winner Name</Label>
+                            <Input
+                              value={winner.name}
+                              onChange={e => handleResultWinnerChange(index, 'name', e.target.value)}
+                              placeholder="Enter name or team name"
+                            />
+                          </div>
+                          <div>
+                            <Label>Points</Label>
+                            <Input
+                              type="number"
+                              value={winner.points}
+                              onChange={e => handleResultWinnerChange(index, 'points', parseInt(e.target.value))}
+                            />
+                          </div>
+                          <div>
+                            <Label>Position</Label>
+                            <Input
+                              type="number"
+                              min={1}
+                              value={winner.position}
+                              onChange={e => handleResultWinnerChange(index, 'position', parseInt(e.target.value))}
+                              placeholder="Position"
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                    <div className="flex items-center mt-4">
+                      <Button type="button" variant="outline" onClick={handleAddWinner}>
+                        <Plus className="h-4 w-4 mr-2" /> Add Winner
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {selectedEvent && (
+                  <div className="flex justify-end mt-4">
+                    <Button onClick={handleSaveResults} className="flex items-center space-x-2">
+                      <Save className="h-4 w-4" />
+                      <span>Save Results</span>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
