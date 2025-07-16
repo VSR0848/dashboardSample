@@ -441,7 +441,18 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
                             <Label>Winner Photo</Label>
                             {winner.photo ? (
                               <div className="relative">
-                                <img src={winner.photo} alt="Winner preview" className="w-full h-32 object-cover rounded-lg border" />
+                                <img 
+                                  src={winner.photo} 
+                                  alt="Winner preview" 
+                                  className="w-full h-32 object-cover rounded-lg border"
+                                  onError={(e) => {
+                                    // Fallback to placeholder if image fails to load
+                                    const target = e.target as HTMLImageElement;
+                                    if (target.src !== '/placeholder.svg') {
+                                      target.src = '/placeholder.svg';
+                                    }
+                                  }}
+                                />
                                 <Button type="button" onClick={() => {
                                   const updated = [...resultWinners];
                                   updated[index].photo = undefined;
@@ -455,15 +466,43 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
                                 <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
                                 <Input
                                   type="file"
-                                  accept="image/*"
+                                  accept="image/*,.webp"
                                   onChange={e => {
                                     const file = e.target.files?.[0];
                                     if (file) {
+                                      // Validate file type
+                                      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+                                      if (!validTypes.includes(file.type)) {
+                                        toast({
+                                          title: "Invalid file type",
+                                          description: "Please upload a valid image file (JPEG, PNG, GIF, or WebP).",
+                                          variant: "destructive",
+                                        });
+                                        return;
+                                      }
+                                      
+                                      // Validate file size (max 5MB)
+                                      if (file.size > 5 * 1024 * 1024) {
+                                        toast({
+                                          title: "File too large",
+                                          description: "Please upload an image smaller than 5MB.",
+                                          variant: "destructive",
+                                        });
+                                        return;
+                                      }
+                                      
                                       const reader = new FileReader();
                                       reader.onload = ev => {
                                         const updated = [...resultWinners];
                                         updated[index].photo = ev.target?.result as string;
                                         setResultWinners(updated);
+                                      };
+                                      reader.onerror = () => {
+                                        toast({
+                                          title: "Error reading file",
+                                          description: "Failed to read the uploaded image. Please try again.",
+                                          variant: "destructive",
+                                        });
                                       };
                                       reader.readAsDataURL(file);
                                     }
@@ -471,7 +510,7 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
                                   className="hidden"
                                   id={`result-photo-${index}`} />
                                 <Label htmlFor={`result-photo-${index}`} className="cursor-pointer text-blue-600 hover:text-blue-700">
-                                  Click to upload photo
+                                  Click to upload photo (JPEG, PNG, GIF, WebP - max 5MB)
                                 </Label>
                               </div>
                             )}
@@ -584,7 +623,13 @@ const AdminDashboard = ({ onBack }: AdminDashboardProps) => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => deleteEvent(event.id)}
+                              onClick={() => {
+                                updateEvent({ ...event, winners: [] });
+                                toast({
+                                  title: "Results Cleared",
+                                  description: `All results for ${event.name} have been cleared.`,
+                                });
+                              }}
                               className="flex items-center space-x-1 text-red-600 hover:text-red-700"
                             >
                               <Trash2 className="h-3 w-3" />

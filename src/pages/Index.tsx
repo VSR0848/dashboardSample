@@ -71,7 +71,7 @@ const Index = () => {
                 <Trophy className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">School House Cultural Events</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Cynosure 2025-'26</h1>
                 <p className="text-gray-600">Live Scoring & Results Dashboard</p>
               </div>
             </div>

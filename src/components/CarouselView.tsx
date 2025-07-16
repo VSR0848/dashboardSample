@@ -150,9 +150,16 @@ const CarouselView = ({ onBack }: CarouselViewProps) => {
                                 
                                 <div className="mb-6">
                                   <img 
-                                    src={winner.photo} 
+                                    src={winner.photo || '/placeholder.svg'} 
                                     alt={winner.name}
                                     className="w-48 h-48 object-cover rounded-lg mx-auto mb-6 border-4 border-white/30 shadow-2xl"
+                                    onError={(e) => {
+                                      // Fallback to placeholder if image fails to load
+                                      const target = e.target as HTMLImageElement;
+                                      if (target.src !== '/placeholder.svg') {
+                                        target.src = '/placeholder.svg';
+                                      }
+                                    }}
                                   />
                                   <h4 className="text-2xl font-bold text-white mb-3">{winner.name}</h4>
                                   <div className="flex justify-center mb-3">

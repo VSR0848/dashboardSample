@@ -84,16 +84,6 @@ const LiveScoreboard = () => {
                 </div>
               </div>
               
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Progress</span>
-                  <span>{Math.round((house.score / maxScore) * 100)}%</span>
-                </div>
-                <Progress 
-                  value={(house.score / maxScore) * 100} 
-                  className="h-3"
-                />
-              </div>
               
               {index === 0 && (
                 <div className="absolute -top-2 -right-2 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
